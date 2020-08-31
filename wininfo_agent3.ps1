@@ -24,7 +24,6 @@ function Get-Uptime {
  
 #Clear-Host
 Get-Uptime
-
 function Test-PendingReboot
 {
  if (Get-ChildItem "HKLM:\Software\Microsoft\Windows\CurrentVersion\Component Based Servicing\RebootPending" -EA Ignore) { return $true }
@@ -76,15 +75,6 @@ foreach ($i in $inst)
         '^14' { "Microsoft SQL Server 2017" }
         Default { "Unsupported version." }
     }
-
-    #$sql = [PSCustomObject]@{
-    #'Instance'         = $i
-    #'Product'          = $product
-    #'Edition'          = $edition
-    #'Version'          = $version
-    #}
-    #$sql | fl
-    
     Write-Host ""
     #Write-Host "Instance: $i"
     Write-Host "Product: $product"
@@ -95,23 +85,6 @@ foreach ($i in $inst)
 }Else{
 Write-Host "SQL Software not installed"
 }
-Write-Host "Armor Agent Version and Status" -ForegroundColor Yellow
-$ErrorActionPreference = "SilentlyContinue"
-$armoragent = $null;
-$armordb = $null;
-$armoragent = C:\.armor\opt\armor.exe show subagents
-$armordb = C:\.armor\opt\armor.exe show db
-#$armorversion = C:\.armor\opt\armor.exe --v
-If ($armoragent -ne $null)
-{
-#$armorversion
-$armoragent
-$armordb
-}
-Else
-{
-Write-Host "Armor Agent Not Installed";
-} 
 Write-Host "Armor Subagent Service Status" -ForegroundColor Yellow
 $services = @{}
 $servicenames = @('AMSP', 'Armor-Filebeat', 'Armor-Winlogbeat', 'Bomgar', 'QualysAgent', 'PanoptaAgent')
@@ -126,12 +99,3 @@ Foreach ($servicename in $servicenames ) {
     $services.Add($servicename , $servicestatus)
 }
 New-Object psobject -Property $services | Out-Default
-#Write-Host "Installed Windows Features" -ForegroundColor Yellow
-#$ErrorActionPreference = "SilentlyContinue"
-#$WindowsFeatures = Get-WindowsFeature | Where InstallState -eq Installed | ft -a
-#If ($WindowsFeatures -eq $null){Write-Host "This feature only exists in Windows Server OS's"}Else{$WindowsFeatures}
-#Write-Host "System Error Logs" -ForegroundColor Yellow
-#Get-EventLog -LogName System -EntryType Warning,Error -Newest 10 | ft -Wrap
-#Write-Host "Application Error Logs" -ForegroundColor Yellow
-#Get-EventLog -LogName Application -EntryType Warning,Error -Newest 10 | ft -Wrap
-#ConvertTo-Html | Out-File C:\wininfo.html

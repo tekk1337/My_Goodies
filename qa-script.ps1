@@ -46,13 +46,13 @@ Write-Host "Installed Antivirus Software" -ForegroundColor Yellow
 $ErrorActionPreference = "SilentlyContinue"
 $antivirus = Get-ChildItem -Path HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall, HKLM:\SOFTWARE\Wow6432Node\Microsoft\Windows\CurrentVersion\Uninstall | Get-ItemProperty | Where-Object {$_.DisplayName -match "trend|mcafee|eset|symantec|norton|bitdefender|sophos|kapersky|avast|avg|avg|clamav|virus|endpoint protection|smart security|internet security" } | Select-Object -Property DisplayName | Select -ExpandProperty DisplayName
 If ($antivirus -eq $null){Write-Host "No Antivirus Installed"}Else{$antivirus}
-$trend4119 = New-Object System.Net.Sockets.TcpClient("3a.epsec.armor.com", 4119) | select -ExpandProperty Connected
-$trend4120 = New-Object System.Net.Sockets.TcpClient("3a.epsec.armor.com", 4120) | select -ExpandProperty Connected
-$trend4122 = New-Object System.Net.Sockets.TcpClient("3a.epsec.armor.com", 4122) | select -ExpandProperty Connected
-Write-Host "Trend Port Connectivity" -ForegroundColor Yellow
-Write-Output "Port 4119 Connected: $trend4119"
-Write-Output "Port 4120 Connected: $trend4120"
-Write-Output "Port 4121 Connected: $trend4122"
+#$trend4119 = New-Object System.Net.Sockets.TcpClient("3a.epsec.armor.com", 4119) | select -ExpandProperty Connected
+#$trend4120 = New-Object System.Net.Sockets.TcpClient("3a.epsec.armor.com", 4120) | select -ExpandProperty Connected
+#$trend4122 = New-Object System.Net.Sockets.TcpClient("3a.epsec.armor.com", 4122) | select -ExpandProperty Connected
+#Write-Host "Trend Port Connectivity" -ForegroundColor Yellow
+#Write-Output "Port 4119 Connected: $trend4119"
+#Write-Output "Port 4120 Connected: $trend4120"
+#Write-Output "Port 4121 Connected: $trend4122"
 Write-Host "Installed Patches" -ForegroundColor Yellow
 Get-HotFix | Select-Object -Property Description,HotFixID,InstalledOn | Select-Object -Last 5 | Sort-Object -Descending | Format-Table
 Write-Host "Protocols and Ciphers" -ForegroundColor Yellow
@@ -95,41 +95,41 @@ foreach ($i in $inst)
 }Else{
 Write-Host "SQL Software not installed"
 }
-Write-Host "Armor Agent Version and Status" -ForegroundColor Yellow
-$ErrorActionPreference = "SilentlyContinue"
-$armoragent = $null;
-$armordb = $null;
-$armoragent = C:\.armor\opt\armor.exe show subagents
-$armordb = C:\.armor\opt\armor.exe show db
-#$armorversion = C:\.armor\opt\armor.exe --v
-If ($armoragent -ne $null)
-{
-#$armorversion
-$armoragent
-$armordb
-}
-Else
-{
-Write-Host "Armor Agent Not Installed";
-} 
-Write-Host "Armor Subagent Service Status" -ForegroundColor Yellow
-$services = @{}
-$servicenames = @('AMSP', 'Armor-Filebeat', 'Armor-Winlogbeat', 'Bomgar', 'QualysAgent', 'PanoptaAgent')
-Foreach ($servicename in $servicenames ) {
-    try {
-        $servicestatus = Get-Service $servicename -ErrorAction Stop | select -ExpandProperty status
-        
-    } catch {
-        $servicestatus = 'Not Installed'
-        
-    }
-    $services.Add($servicename , $servicestatus)
-}
-New-Object psobject -Property $services | Out-Default
-#Write-Host "Installed Windows Features" -ForegroundColor Yellow
+#Write-Host "Armor Agent Version and Status" -ForegroundColor Yellow
 #$ErrorActionPreference = "SilentlyContinue"
-#$WindowsFeatures = Get-WindowsFeature | Where InstallState -eq Installed | ft -a
-#If ($WindowsFeatures -eq $null){Write-Host "This feature only exists in Windows Server OS's"}Else{$WindowsFeatures}
+#$armoragent = $null;
+#$armordb = $null;
+#$armoragent = C:\.armor\opt\armor.exe show subagents
+#$armordb = C:\.armor\opt\armor.exe show db
+#$armorversion = C:\.armor\opt\armor.exe --v
+#If ($armoragent -ne $null)
+#{
+#$armorversion
+#$armoragent
+#$armordb
+#}
+#Else
+#{
+#Write-Host "Armor Agent Not Installed";
+#} 
+#Write-Host "Armor Subagent Service Status" -ForegroundColor Yellow
+#$services = @{}
+#$servicenames = @('AMSP', 'Armor-Filebeat', 'Armor-Winlogbeat', 'Bomgar', 'ir_agent', 'PanoptaAgent')
+#Foreach ($servicename in $servicenames ) {
+#    try {
+#        $servicestatus = Get-Service $servicename -ErrorAction Stop | select -ExpandProperty status
+#        
+#    } catch {
+#        $servicestatus = 'Not Installed'
+#       
+#    }
+#    $services.Add($servicename , $servicestatus)
+#}
+#New-Object psobject -Property $services | Out-Default
+Write-Host "Installed Windows Features" -ForegroundColor Yellow
+$ErrorActionPreference = "SilentlyContinue"
+$WindowsFeatures = Get-WindowsFeature | Where InstallState -eq Installed | ft -a
+If ($WindowsFeatures -eq $null){Write-Host "This feature only exists in Windows Server OS's"}Else{$WindowsFeatures}
 #Write-Host "System Error Logs" -ForegroundColor Yellow
 #Get-EventLog -LogName System -EntryType Warning,Error -Newest 10 | ft -Wrap
 #Write-Host "Application Error Logs" -ForegroundColor Yellow
