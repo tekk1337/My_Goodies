@@ -61,21 +61,11 @@ Foreach ($servicename in $servicenames ) {
 }
 New-Object psobject -Property $services | Out-Default
 Write-Host "Armor Agent Version and Status" -ForegroundColor Yellow
-$ErrorActionPreference = "SilentlyContinue"
-#$armoragent = $null;
-$armordb = $null;
-$armorid = Get-Content C:\.armor\armor-id
-#$armoragent = C:\.armor\opt\armor.exe show subagents
-$armordb = C:\.armor\opt\armor.exe show db
-#If ($armoragent -ne $null)
-{
 ""
-Write-Host "Armor Agent ID: $armorid"
-""
-#$armoragent
-$armordb
+$armorversion = C:\.armor\opt\armor.exe --v
+$armorversion = $armorversion.split(" ")[2]
+If ($armorversion -eq $null) {Write-Host "Armor Agent is not installed"}Else{
+Write-Output "Agent Version: $armorversion"
 }
-Else
-{
-Write-Host "Armor Agent Not Installed";
-} 
+$agentstatus = gsv armor-agent | select -ExpandProperty Status
+If ($agentstatus -eq $null){Write-Host "Armor Agent Status: Not Installed"}Else{Write-Host "Armor Agent Status: $agentstatus"}
