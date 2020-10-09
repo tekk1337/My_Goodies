@@ -56,27 +56,48 @@ $ErrorActionPreference = "SilentlyContinue"
 $antivirus = Get-ChildItem -Path HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall, HKLM:\SOFTWARE\Wow6432Node\Microsoft\Windows\CurrentVersion\Uninstall | Get-ItemProperty | Where-Object {$_.DisplayName -match "trend|mcafee|eset|symantec|norton|bitdefender|sophos|kapersky|avast|avg|avg|clamav|virus|endpoint protection|smart security|internet security" } | Select-Object -Property DisplayName | Select -ExpandProperty DisplayName
 If ($antivirus -eq $null){Write-Host "No Antivirus Installed"}Else{$antivirus}}
 #AV-Check
-Function Trend-PortCheck
-{$trend4119 = New-Object System.Net.Sockets.TcpClient("3a.epsec.armor.com", 4119) | select -ExpandProperty Connected
-$trend4120 = New-Object System.Net.Sockets.TcpClient("3a.epsec.armor.com", 4120) | select -ExpandProperty Connected
-$trend4122 = New-Object System.Net.Sockets.TcpClient("3a.epsec.armor.com", 4122) | select -ExpandProperty Connected
-Write-Host "Trend Port Connectivity" -ForegroundColor Yellow
-Write-Output "Port 4119 Connected: $trend4119"
-Write-Output "Port 4120 Connected: $trend4120"
-Write-Output "Port 4121 Connected: $trend4122"
-}
-#Trend-PortCheck
 Function Patch-Check
 {Write-Host "Installed Patches" -ForegroundColor Yellow
 Get-HotFix | Select-Object -Property Description,HotFixID,InstalledOn | Select-Object -Last 5 | Sort-Object -Descending | Format-Table}
 #Patch-Check
-Function Cipher-Check
+Function Protocolcheck
 {
+Write-Host "Protocols" -ForegroundColor Yellow
 $ErrorActionPreference = "SilentlyContinue"
-Write-Host "Protocols and Ciphers" -ForegroundColor Yellow
-$tls = Get-ItemProperty HKLM:\SYSTEM\CurrentControlSet\Control\SecurityProviders\SCHANNEL\Protocols\*\* | ft @{n='protocol';e={($_.pschildname) +"-"+ ($_.pspath).split("\")[-2]}},Enabled,DisabledByDefault -auto;"Ciphers","Hashes","KeyExchangeAlgorithms" | foreach{$c=$_;Get-ItemProperty "HKLM:\SYSTEM\CurrentControlSet\Control\SecurityProviders\SCHANNEL\$c\*" |ft @{n="$c";e={($_.pspath).split("\")[-2]}},Enabled -auto};(Get-ItemProperty 'HKLM:\SOFTWARE\Policies\Microsoft\Cryptography\Configuration\SSL\00010002').Functions.split(',')
-If ($tls -eq $null){Write-Host "Server Defaults Only"}Else{$tls}
+$OScheck = Get-CimInstance Win32_OperatingSystem | select -ExpandProperty Caption | ForEach-Object { $_.Split(' ')[3] }
+$SSL2 = Get-ItemProperty -Path 'HKLM:\SYSTEM\CurrentControlSet\Control\SecurityProviders\SCHANNEL\Protocols\SSL 2.0\Server' | select -ExpandProperty Enabled
+$SSL3 = Get-ItemProperty -Path 'HKLM:\SYSTEM\CurrentControlSet\Control\SecurityProviders\SCHANNEL\Protocols\SSL 3.0\Server' | select -ExpandProperty Enabled
+$tls10 = Get-ItemProperty -Path 'HKLM:\SYSTEM\CurrentControlSet\Control\SecurityProviders\SCHANNEL\Protocols\TLS 1.0\Server' | select -ExpandProperty Enabled
+$tls11 = Get-ItemProperty -Path 'HKLM:\SYSTEM\CurrentControlSet\Control\SecurityProviders\SCHANNEL\Protocols\TLS 1.1\Server' | select -ExpandProperty Enabled
+$tls12 = Get-ItemProperty -Path 'HKLM:\SYSTEM\CurrentControlSet\Control\SecurityProviders\SCHANNEL\Protocols\TLS 1.2\Server' | select -ExpandProperty Enabled
+If ($SSL2 -eq 1){Write-Host "SSL 2.0 is Enabled"}Else{Write-Host "SSL 2.0 is Disabled"}
+If ($SSL3 -eq 1){Write-Host "SSL 3.0 is Enabled"}Else{Write-Host "SSL 3.0 is Disabled"}
+If ($tls10 -eq 0){Write-Host "TLS 1.0 is Disabled"}Else{Write-Host "TLS 1.0 is Enabled"}
+If ($OScheck -gt 2012) {Write-Host "TLS 1.1 and 1.2 is Enabled by Default on this OS"}
+Else
+    {
+        If ($tls11 -eq 0){Write-Host "TLS 1.1 is Disabled"}Else{Write-Host "TLS 1.1 is Enabled"}
+        If ($tls12 -eq 0){Write-Host "TLS 1.2 is Disabled"}Else{Write-Host "TLS 1.2 is Enabled"}
+    }
 }
+function CipherCheck {
+Write-Host "Ciphers" -ForegroundColor Yellow
+$ciphercheck = Get-ItemProperty -Path HKLM:\SYSTEM\CurrentControlSet\Control\Cryptography\Configuration\Local\SSL\00010002\ -Name Functions | select -ExpandProperty Functions 
+$ciphercheck2 = Get-ItemProperty -Path HKLM:\SYSTEM\CurrentControlSet\Control\Cryptography\Configuration\Local\SSL\00010003\ -Name Functions | select -ExpandProperty Functions
+$reply = Read-Host -Prompt "Do you wish to view the Ciphers?[y/n]"
+""
+If ( $reply -like "y" ) 
+{write-host 
+$ciphercheck 
+$ciphercheck2}
+Else{Write-Host "Skipping Cipher Check"}
+}
+#{
+#$ErrorActionPreference = "SilentlyContinue"
+#Write-Host "Protocols and Ciphers" -ForegroundColor Yellow
+#$tls = Get-ItemProperty HKLM:\SYSTEM\CurrentControlSet\Control\SecurityProviders\SCHANNEL\Protocols\*\* | ft @{n='protocol';e={($_.pschildname) +"-"+ ($_.pspath).split("\")[-2]}},Enabled,DisabledByDefault -auto;"Ciphers","Hashes","KeyExchangeAlgorithms" | foreach{$c=$_;Get-ItemProperty "HKLM:\SYSTEM\CurrentControlSet\Control\SecurityProviders\SCHANNEL\$c\*" |ft @{n="$c";e={($_.pspath).split("\")[-2]}},Enabled -auto};(Get-ItemProperty 'HKLM:\SOFTWARE\Policies\Microsoft\Cryptography\Configuration\SSL\00010002').Functions.split(',')
+#If ($tls -eq $null){Write-Host "Server Defaults Only"}Else{$tls}
+#}
 #Cipher-Check
 Function Software-check
 {Write-Host "Software Check" -ForegroundColor Yellow
@@ -129,48 +150,7 @@ New-Object psobject -Property $services | Out-Default
 #Armor-Services
 }
 $ErrorActionPreference = "SilentlyContinue"
-Function Agent-Info
-{
-$ErrorActionPreference = 'silentlycontinue'
-$armoragent = gsv armor-agent | select -ExpandProperty Status
-If ($armoragent -eq $null) {Write-Host "Armor Agent Status: Not Installed"}Else{Write-Host "Armor Agent Status: $armoragent"}
-}
-Function Agent-Version
-{
-Write-Host "Armor Agent Information" -ForegroundColor Yellow
-$agentversion = C:\.armor\opt\armor.exe --v
-$agentversion = $agentversion.split(" ")[2]
-If ($agentversion -eq $null){Write-Host "Armor Agent is not installed"}Else{Write-Host "Armor Agent Version: $agentversion"}
-}
-$ErrorActionPreference = "SilentlyContinue"
-Function show-subagents
-{
-$output = @()
-$reg = Get-ChildItem -Path HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall, HKLM:\SOFTWARE\Wow6432Node\Microsoft\Windows\CurrentVersion\Uninstall | Get-ItemProperty
-"Trend","Panopta","Qualys" | ForEach-Object {
-    $tmpout = '' | select Subagent,Version,Installed
-    $tmpout.Subagent = $_
-    $key = $reg | Where-Object { $_ -match $tmpout.Subagent }
-    $tmpout.Installed = ( -not [string]::IsNullOrEmpty($key) )
-    $tmpout.Version = try{ $key[0].displayversion } catch {$null}
-        
-    $output+= $tmpout
-}
-'Filebeat','Winlogbeat' | ForEach-Object {
-    $tmpout = '' | select Subagent,Version,Installed
-    $tmpout.Subagent = $_
-    try {
-        $filepath = Get-Item -Path "c:\.armor\opt\$_*" -ErrorAction Stop | Where-Object{$_.PSIsContainer} | select -First 1
-        $tmpout.Installed = $true
-        $tmpout.Version = ($filepath.Name | Select-String "\d\.\d\.\d").Matches[0].Value
-    } catch {
-        $tmpout.Installed = $false
-        $tmpout.Version = $null
-    }
-    $output += $tmpout
-}
-$output
-}
+
 
 server-info
 Get-Uptime
@@ -178,5 +158,7 @@ Test-PendingReboot
 AV-Check
 Trend-PortCheck
 Patch-Check
-Cipher-Check
+Protocolcheck
+""
+CipherCheck
 Software-check
