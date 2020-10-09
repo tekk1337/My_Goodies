@@ -70,13 +70,43 @@ Function Patch-Check
 {Write-Host "Installed Patches" -ForegroundColor Yellow
 Get-HotFix | Select-Object -Property Description,HotFixID,InstalledOn | Select-Object -Last 5 | Sort-Object -Descending | Format-Table}
 #Patch-Check
-Function Cipher-Check
+Function Protocolcheck
 {
+Write-Host "Protocols" -ForegroundColor Yellow
 $ErrorActionPreference = "SilentlyContinue"
-Write-Host "Protocols and Ciphers" -ForegroundColor Yellow
-$tls = Get-ItemProperty HKLM:\SYSTEM\CurrentControlSet\Control\SecurityProviders\SCHANNEL\Protocols\*\* | ft @{n='protocol';e={($_.pschildname) +"-"+ ($_.pspath).split("\")[-2]}},Enabled,DisabledByDefault -auto;"Ciphers","Hashes","KeyExchangeAlgorithms" | foreach{$c=$_;Get-ItemProperty "HKLM:\SYSTEM\CurrentControlSet\Control\SecurityProviders\SCHANNEL\$c\*" |ft @{n="$c";e={($_.pspath).split("\")[-2]}},Enabled -auto};(Get-ItemProperty 'HKLM:\SOFTWARE\Policies\Microsoft\Cryptography\Configuration\SSL\00010002').Functions.split(',')
-If ($tls -eq $null){Write-Host "Server Defaults Only"}Else{$tls}
+$OScheck = Get-CimInstance Win32_OperatingSystem | select -ExpandProperty Caption | ForEach-Object { $_.Split(' ')[3] }
+$SSL2 = Get-ItemProperty -Path 'HKLM:\SYSTEM\CurrentControlSet\Control\SecurityProviders\SCHANNEL\Protocols\SSL 2.0\Server' | select -ExpandProperty Enabled
+$SSL3 = Get-ItemProperty -Path 'HKLM:\SYSTEM\CurrentControlSet\Control\SecurityProviders\SCHANNEL\Protocols\SSL 3.0\Server' | select -ExpandProperty Enabled
+$tls10 = Get-ItemProperty -Path 'HKLM:\SYSTEM\CurrentControlSet\Control\SecurityProviders\SCHANNEL\Protocols\TLS 1.0\Server' | select -ExpandProperty Enabled
+$tls11 = Get-ItemProperty -Path 'HKLM:\SYSTEM\CurrentControlSet\Control\SecurityProviders\SCHANNEL\Protocols\TLS 1.1\Server' | select -ExpandProperty Enabled
+$tls12 = Get-ItemProperty -Path 'HKLM:\SYSTEM\CurrentControlSet\Control\SecurityProviders\SCHANNEL\Protocols\TLS 1.2\Server' | select -ExpandProperty Enabled
+If ($SSL2 -eq 1){Write-Host "SSL 2.0 is Enabled"}Else{Write-Host "SSL 2.0 is NOT Enabled"}
+If ($SSL3 -eq 1){Write-Host "SSL 3.0 is Enabled"}Else{Write-Host "SSL 3.0 is NOT Enabled"}
+If ($tls10 -eq 0){Write-Host "TLS 1.0 is NOT Enabled"}Else{Write-Host "TLS 1.0 is Enabled"}
+If ($OScheck -gt 2012) {Write-Host "TLS 1.1 and 1.2 is Enabled by Default on this OS"}
+Else
+    {
+        If ($tls11 -eq 0){Write-Host "TLS 1.1 is NOT Enabled"}Else{Write-Host "TLS 1.1 is Enabled"}
+        If ($tls12 -eq 0){Write-Host "TLS 1.2 is NOT Enabled"}Else{Write-Host "TLS 1.2 is Enabled"}
+    }
 }
+function CipherCheck {
+Write-Host "Ciphers" -ForegroundColor Yellow
+$ciphercheck = Get-ItemProperty -Path HKLM:\SYSTEM\CurrentControlSet\Control\Cryptography\Configuration\Local\SSL\00010002\ -Name Functions | select -ExpandProperty Functions 
+$ciphercheck2 = Get-ItemProperty -Path HKLM:\SYSTEM\CurrentControlSet\Control\Cryptography\Configuration\Local\SSL\00010003\ -Name Functions | select -ExpandProperty Functions
+$reply = Read-Host -Prompt "Do you wish to view the Ciphers?[y/n]"
+If ( $reply -like "y" ) 
+{write-host 
+$ciphercheck 
+$ciphercheck2}
+Else{Write-Host "Skipping Cipher Check"}
+}
+#{
+#$ErrorActionPreference = "SilentlyContinue"
+#Write-Host "Protocols and Ciphers" -ForegroundColor Yellow
+#$tls = Get-ItemProperty HKLM:\SYSTEM\CurrentControlSet\Control\SecurityProviders\SCHANNEL\Protocols\*\* | ft @{n='protocol';e={($_.pschildname) +"-"+ ($_.pspath).split("\")[-2]}},Enabled,DisabledByDefault -auto;"Ciphers","Hashes","KeyExchangeAlgorithms" | foreach{$c=$_;Get-ItemProperty "HKLM:\SYSTEM\CurrentControlSet\Control\SecurityProviders\SCHANNEL\$c\*" |ft @{n="$c";e={($_.pspath).split("\")[-2]}},Enabled -auto};(Get-ItemProperty 'HKLM:\SOFTWARE\Policies\Microsoft\Cryptography\Configuration\SSL\00010002').Functions.split(',')
+#If ($tls -eq $null){Write-Host "Server Defaults Only"}Else{$tls}
+#}
 #Cipher-Check
 Function Software-check
 {Write-Host "Software Check" -ForegroundColor Yellow
@@ -178,7 +208,9 @@ Test-PendingReboot
 AV-Check
 Trend-PortCheck
 Patch-Check
-Cipher-Check
+Protocolcheck
+""
+CipherCheck
 Software-check
 Armor-Services
 Agent-Version
