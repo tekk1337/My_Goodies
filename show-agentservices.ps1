@@ -23,12 +23,12 @@ $reg = Get-ChildItem -Path HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Unins
     }
     $output += $tmpout
 }
-$output
+$output | Out-Default
 
 
 Write-Host "Armor Subagent Service Status" -ForegroundColor Yellow
 $services = @{}
-$servicenames = @('AMSP', 'Armor-Filebeat', 'Armor-Winlogbeat', 'Bomgar', 'QualysAgent', 'PanoptaAgent')
+$servicenames = @('AMSP', 'ds_agent', 'Armor-Filebeat', 'Armor-Winlogbeat', 'Bomgar', 'QualysAgent', 'PanoptaAgent')
 Foreach ($servicename in $servicenames ) {
     try {
         $servicestatus = Get-Service $servicename -ErrorAction Stop | select -ExpandProperty status

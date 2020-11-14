@@ -195,19 +195,83 @@ $reg = Get-ChildItem -Path HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Unins
 $output
 }
 
-server-info
-Get-Uptime
-Test-PendingReboot
-AV-Check
-Trend-PortCheck
-Patch-Check
-Protocolcheck
-""
-CipherCheck
-Software-check
-Armor-Services
-Agent-Version
-""
-Agent-Info
-""
-show-subagents
+#server-info
+#Get-Uptime
+#Test-PendingReboot
+#AV-Check
+#Trend-PortCheck
+#Patch-Check
+#Protocolcheck
+#""
+#CipherCheck
+#Software-check
+#Armor-Services
+#Agent-Version
+#""
+#Agent-Info
+#""
+#show-subagents
+function Show-Menu {
+    [CmdletBinding()]
+    param (
+        [string[]]$options = @('server-info','get-uptime','test-pendingreboot','av-check','trend-portcheck','patch-check','protocolcheck','ciphercheck','software-check','armor-services','agent-version','agent-info','show-subagents')
+    )
+    # store the options in a List object for easy addition
+    $list = [System.Collections.Generic.List[string]]::new()
+    $list.AddRange($options)
+
+    # now start an endless loop for the menu handling
+    while ($true) { 
+        Clear-Host
+        # loop through the options list and build the menu
+        Write-Host "`r`nPlease choose from the list below.`r`n"
+        $index = 1
+        $list.Sort()
+        $list | ForEach-Object { Write-Host ("{0}.`t{1}" -f $index++, $_ )}
+        Write-Host "`r`nN.`tAdd a new item to the list"
+        Write-Host "Q.`tQuit"
+
+        $selection = Read-Host "`r`nEnter Option"
+
+        switch ($selection) {
+            {$_ -like 'N*' } {
+                # the user want to add a new item to the menu
+                $item = (Read-Host "Please add a new item").Trim()
+                if (![string]::IsNullOrWhiteSpace($item) -and $list -notcontains $item) {
+                    Write-Host "Adding new item '$item'.." -ForegroundColor Yellow
+                    $list.Add($item)
+                }
+            }
+            {$_ -like 'Q*' } { 
+                # if the user presses 'Q', exit the function
+                return 
+            } 
+            default {
+                # test if a valid numeric input in range has been given
+                if ([int]::TryParse($selection, [ref]$index)) {
+                    if ($index -gt 0 -and $index -le $list.Count) {
+                        # do whatever you need to perform
+                        $selection = $list[$index - 1]  # this gives you the text of the selected item
+
+                        # for demo, just output on screen what option was selected
+                        Write-Host "Building connection using $selection" -ForegroundColor Green
+                        # return the selection made to the calling script
+                        return $selection
+                    }
+                    else {
+                        Write-Host "Please enter a valid option from the menu" -ForegroundColor Red
+                    }
+                }
+                else {
+                    Write-Host "Please enter a valid option from the menu" -ForegroundColor Red
+                }
+            }
+        }
+
+        # add a little pause and start over again
+        Start-Sleep -Seconds 1
+    }
+}
+
+# call the function
+$choice = Show-Menu
