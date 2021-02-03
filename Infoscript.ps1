@@ -1,116 +1,101 @@
-﻿Clear-Host;
-Function server-info 
-{Write-Host "Hostname" -ForegroundColor Yellow
-$env:COMPUTERNAME
-Write-Host "Domain Information" -ForegroundColor Yellow
-$domain = (Get-CimInstance Win32_ComputerSystem).Domain
-If ($domain -like '*.*'){Write-Host "Domain Name: $domain"}Else{Write-Host "Domain Name: Not connected to domain"}
-$OS = Get-CimInstance Win32_OperatingSystem | select -ExpandProperty Caption
-$OSSP = (Get-CimInstance Win32_OperatingSystem | select -ExpandProperty ServicePackMajorVersion)
-$OSArch = (Get-CimInstance Win32_OperatingSystem).OSArchitecture
-Write-Host "OS" -ForegroundColor Yellow; "$OS $OSArch Service Pack $OSSP"
-Write-Host "IP Address" -ForegroundColor Yellow
-Get-NetIPAddress -AddressFamily IPv4 -InterfaceAlias Ethernet* | select -ExpandProperty IPAddress
-Write-Host "DNS IPs" -ForegroundColor Yellow
-Get-DnsClientServerAddress -InterfaceAlias "Ethernet*"  | select -ExpandProperty ServerAddresses | Where-Object {$_ -notlike "*:*"}
-Write-Host "CPU Information" -ForegroundColor Yellow
-Get-CimInstance –class Win32_processor | ft DeviceID,NumberOfCores,NumberOfLogicalProcessors
-Write-Host "Memory" -ForegroundColor Yellow 
-$RAM = Get-CimInstance Win32_PhysicalMemory | Measure-Object -Property capacity -Sum | Foreach {"{0:N2}" -f ([math]::round(($_.Sum / 1GB),2))}
-Write-Host "$RAM GB"
-Write-Host "Hard Drive Information" -ForegroundColor Yellow
-$c=$env:COMPUTERNAME;$disks=gwmi win32_diskdrive -Comp $c|select __path,@{n="SCSI_Id";e={[string]$([int]$_.scsiport)+":"+$_.scsitargetid}},serialnumber,Type;function match($p,$l,$c){$l2p=gwmi win32_logicaldisktopartition -comp $c|?{$_.dependent -eq $l.__PATH};$d2p=gwmi win32_diskdrivetodiskpartition -comp $c|?{$_.dependent -eq $l2p.antecedent};$tmp=Get-WmiObject Win32_DiskPartition -comp $c|?{$_.__PATH -eq $l2p.Antecedent};$t=switch -Regex ($tmp.type){'^GPT'{'GPT'};'^Ins'{'MBR'};default{'unavailable'}}$p=$p|?{$_.__path -eq $d2p.antecedent};$p.Type=$t;$p};gwmi win32_logicaldisk -comp $c |?{$_.drivetype -eq '3'}|%{$d = match $disks $_ $c;New-Object psobject -Property @{Computer=$c;Drive=$_.deviceid;Name=$_.volumename;SCSIID=$d.SCSI_Id;SizeGB=[Math]::Round($_.size/1GB);FreeGB=[Math]::Round($_.FreeSpace/1GB);Serial=$d.serialnumber;Type=$d.Type}}|ft -a Computer,Name,Drive,Type,SCSIID,FreeGB,SizeGB,Serial}
-#Get-WmiObject -Class Win32_logicaldisk -Filter "DriveType = '3'" | Select-Object -Property DeviceID, VolumeName, @{L='FreeSpaceGB';E={"{0:N2}" -f ($_.FreeSpace /1GB)}}, @{L="Capacity";E={"{0:N2}" -f ($_.Size/1GB)}} | Out-Default}
-#server-info
-function Get-Uptime {
-   $os = Get-WmiObject win32_operatingsystem
-   $uptime = (Get-Date) - ($os.ConvertToDateTime($os.lastbootuptime))
-   $Display = "Uptime: " + $Uptime.Days + " days, " + $Uptime.Hours + " hours, " + $Uptime.Minutes + " minutes" 
-   $lastboottime = Get-CimInstance CIM_OperatingSystem | Select-Object -ExpandProperty LastBootUpTime
-   Write-Host "System Uptime" -ForegroundColor Yellow
-   Write-Output $Display
-   Write-Host "Last Rebooted:" $lastboottime 
-}
-#Clear-Host
-#Get-Uptime
-function Test-PendingReboot
-{
-Write-Host "Pending Reboot" -ForegroundColor Yellow
- if (Get-ChildItem "HKLM:\Software\Microsoft\Windows\CurrentVersion\Component Based Servicing\RebootPending" -EA Ignore) { return $true }
- if (Get-Item "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate\Auto Update\RebootRequired" -EA Ignore) { return $true }
- if (Get-ItemProperty "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager" -Name PendingFileRenameOperations -EA Ignore) { return $true }
- try { 
-   $util = [wmiclass]"\\.\root\ccm\clientsdk:CCM_ClientUtilities"
-   $status = $util.DetermineIfRebootPending()
-   if(($status -ne $null) -and $status.RebootPending){
-     return $true
-   }
- }catch{}
+[CmdletBinding()]    
+    Param (
+    [switch]$serverinfo,
+    [switch]$getuptime,
+    [switch]$pendingreboot,
+    [switch]$avcheck,
+    [switch]$patchcheck,
+    [switch]$armorservices,
+    [switch]$showsubagents
+    )
 
- return $false
-}
-#Test-PendingReboot
-Function AV-Check
-{Write-Host "Installed Antivirus Software" -ForegroundColor Yellow
-$ErrorActionPreference = "SilentlyContinue"
-$antivirus = Get-ChildItem -Path HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall, HKLM:\SOFTWARE\Wow6432Node\Microsoft\Windows\CurrentVersion\Uninstall | Get-ItemProperty | Where-Object {$_.DisplayName -match "trend|mcafee|eset|symantec|norton|bitdefender|sophos|kapersky|avast|avg|avg|clamav|virus|endpoint protection|smart security|internet security" } | Select-Object -Property DisplayName | Select -ExpandProperty DisplayName
-If ($antivirus -eq $null){Write-Host "No Antivirus Installed"}Else{$antivirus}}
-#AV-Check
-Function Patch-Check
-{Write-Host "Installed Patches" -ForegroundColor Yellow
-Get-HotFix | Select-Object -Property Description,HotFixID,InstalledOn | Select-Object -Last 5 | Sort-Object -Descending | Format-Table}
-#Patch-Check
-Function Protocolcheck
-{
-Write-Host "Protocols" -ForegroundColor Yellow
-$ErrorActionPreference = "SilentlyContinue"
-$OScheck = Get-CimInstance Win32_OperatingSystem | select -ExpandProperty Caption | ForEach-Object { $_.Split(' ')[3] }
-$SSL2 = Get-ItemProperty -Path 'HKLM:\SYSTEM\CurrentControlSet\Control\SecurityProviders\SCHANNEL\Protocols\SSL 2.0\Server' | select -ExpandProperty Enabled
-$SSL3 = Get-ItemProperty -Path 'HKLM:\SYSTEM\CurrentControlSet\Control\SecurityProviders\SCHANNEL\Protocols\SSL 3.0\Server' | select -ExpandProperty Enabled
-$tls10 = Get-ItemProperty -Path 'HKLM:\SYSTEM\CurrentControlSet\Control\SecurityProviders\SCHANNEL\Protocols\TLS 1.0\Server' | select -ExpandProperty Enabled
-$tls11 = Get-ItemProperty -Path 'HKLM:\SYSTEM\CurrentControlSet\Control\SecurityProviders\SCHANNEL\Protocols\TLS 1.1\Server' | select -ExpandProperty Enabled
-$tls12 = Get-ItemProperty -Path 'HKLM:\SYSTEM\CurrentControlSet\Control\SecurityProviders\SCHANNEL\Protocols\TLS 1.2\Server' | select -ExpandProperty Enabled
-If ($SSL2 -eq 1){Write-Host "SSL 2.0 is Enabled"}Else{Write-Host "SSL 2.0 is Disabled"}
-If ($SSL3 -eq 1){Write-Host "SSL 3.0 is Enabled"}Else{Write-Host "SSL 3.0 is Disabled"}
-If ($tls10 -eq 0){Write-Host "TLS 1.0 is Disabled"}Else{Write-Host "TLS 1.0 is Enabled"}
-If ($OScheck -gt 2012) {Write-Host "TLS 1.1 and 1.2 is Enabled by Default on this OS"}
-Else
+Begin {
+    Function Server-Info
     {
-        If ($tls11 -eq 0){Write-Host "TLS 1.1 is Disabled"}Else{Write-Host "TLS 1.1 is Enabled"}
-        If ($tls12 -eq 0){Write-Host "TLS 1.2 is Disabled"}Else{Write-Host "TLS 1.2 is Enabled"}
+        $hostname = [System.Net.Dns]::GetHostName()
+        $osinfo = $OS = Get-CimInstance Win32_OperatingSystem | select -ExpandProperty Caption;$OSSP = (Get-CimInstance Win32_OperatingSystem | select -ExpandProperty ServicePackMajorVersion);$OSArch = (Get-CimInstance Win32_OperatingSystem).OSArchitecture
+        $ipinfo = Get-NetIPAddress -AddressFamily IPv4 -InterfaceAlias Ethernet* | select InterfaceAlias,IPAddress | ft -AutoSize
+        $domain = (Get-CimInstance Win32_ComputerSystem).Domain
+        $dns = Get-DnsClientServerAddress -InterfaceAlias "Ethernet*"  | select -ExpandProperty ServerAddresses | Where-Object {$_ -notlike "*:*"}
+        $memory = Get-CimInstance Win32_PhysicalMemory | Measure-Object -Property capacity -Sum | Foreach {"{0:N2}" -f ([math]::round(($_.Sum / 1GB),2))}
+        $cpuinfo = Get-CimInstance �class Win32_processor | ft DeviceID,NumberOfCores,NumberOfLogicalProcessors
+        Function drive-info
+        {
+            $driveinfo = $c=$env:COMPUTERNAME
+            $disks=gwmi win32_diskdrive -Comp $c|select __path,@{n="SCSI_Id";e={[string]$([int]$_.scsiport)+":"+$_.scsitargetid}},serialnumber,Type
+            function match($p,$l,$c){$l2p=gwmi win32_logicaldisktopartition -comp $c|?{$_.dependent -eq $l.__PATH}
+            $d2p=gwmi win32_diskdrivetodiskpartition -comp $c|?{$_.dependent -eq $l2p.antecedent}
+            $tmp=Get-WmiObject Win32_DiskPartition -comp $c|?{$_.__PATH -eq $l2p.Antecedent}
+            $t=switch -Regex ($tmp.type){'^GPT'{'GPT'};'^Ins'{'MBR'}
+            default{'unavailable'}}$p=$p|?{$_.__path -eq $d2p.antecedent};$p.Type=$t;$p}
+            gwmi win32_logicaldisk -comp $c |?{$_.drivetype -eq '3'}|%{$d = match $disks $_ $c
+            New-Object psobject -Property @{Computer=$c;Drive=$_.deviceid;Name=$_.volumename;SCSIID=$d.SCSI_Id;SizeGB=[Math]::Round($_.size/1GB)
+            FreeGB=[Math]::Round($_.FreeSpace/1GB);Serial=$d.serialnumber;Type=$d.Type}}|ft -a Computer,Name,Drive,Type,SCSIID,FreeGB,SizeGB,Serial
+        }
+        $drive = drive-info
+        Write-Output "Hostname: $hostname"
+        " "
+        Write-Output "OS: $osinfo"
+        " "
+        Write-Output "IP Information:"$ipinfo 
+        " "
+        Write-Output "DNS Server IPs:"$dns
+        " "
+        Write-Output "CPU Information"$cpuinfo
+        Write-Output "Total RAM: $memory GB"
+        " "
+        Write-Output "Drive Information:"$drive
+        
     }
-}
-function CipherCheck {
-Write-Host "Ciphers" -ForegroundColor Yellow
-$ciphercheck = Get-ItemProperty -Path HKLM:\SYSTEM\CurrentControlSet\Control\Cryptography\Configuration\Local\SSL\00010002\ -Name Functions | select -ExpandProperty Functions 
-$ciphercheck2 = Get-ItemProperty -Path HKLM:\SYSTEM\CurrentControlSet\Control\Cryptography\Configuration\Local\SSL\00010003\ -Name Functions | select -ExpandProperty Functions
-$reply = Read-Host -Prompt "Do you wish to view the Ciphers?[y/n]"
-""
-If ( $reply -like "y" ) 
-{write-host 
-$ciphercheck 
-$ciphercheck2}
-Else{Write-Host "Skipping Cipher Check"}
-}
-#{
-#$ErrorActionPreference = "SilentlyContinue"
-#Write-Host "Protocols and Ciphers" -ForegroundColor Yellow
-#$tls = Get-ItemProperty HKLM:\SYSTEM\CurrentControlSet\Control\SecurityProviders\SCHANNEL\Protocols\*\* | ft @{n='protocol';e={($_.pschildname) +"-"+ ($_.pspath).split("\")[-2]}},Enabled,DisabledByDefault -auto;"Ciphers","Hashes","KeyExchangeAlgorithms" | foreach{$c=$_;Get-ItemProperty "HKLM:\SYSTEM\CurrentControlSet\Control\SecurityProviders\SCHANNEL\$c\*" |ft @{n="$c";e={($_.pspath).split("\")[-2]}},Enabled -auto};(Get-ItemProperty 'HKLM:\SOFTWARE\Policies\Microsoft\Cryptography\Configuration\SSL\00010002').Functions.split(',')
-#If ($tls -eq $null){Write-Host "Server Defaults Only"}Else{$tls}
-#}
-#Cipher-Check
-Function Software-check
-{Write-Host "Software Check" -ForegroundColor Yellow
-$ErrorActionPreference = 'silentlycontinue'
-If (Test-Path 'HKLM:\SOFTWARE\Microsoft\Microsoft SQL Server') {
-$inst = (get-itemproperty 'HKLM:\SOFTWARE\Microsoft\Microsoft SQL Server').InstalledInstances
-foreach ($i in $inst)
-{
-    $p = (Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Microsoft SQL Server\Instance Names\SQL').$i
-    #$i
-    $edition = (Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\Microsoft SQL Server\$p\Setup").Edition
-    $version = (Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\Microsoft SQL Server\$p\Setup").Version
-    $product = Switch -regex ($version) {
+    Function Get-Uptime
+    {
+        $os = Get-WmiObject win32_operatingsystem
+        $uptime = (Get-Date) - ($os.ConvertToDateTime($os.lastbootuptime))
+        $Display = "" + $Uptime.Days + " days, " + $Uptime.Hours + " hours, " + $Uptime.Minutes + " minutes" 
+        $lastboottime = Get-CimInstance CIM_OperatingSystem | Select-Object -ExpandProperty LastBootUpTime
+        Write-Output "System Uptime:"
+        Write-Output $Display
+        Write-Output "Last Rebooted:"$lastboottime
+    }
+    #function PendingReboot
+    #{
+    #    if (Get-ChildItem "HKLM:\Software\Microsoft\Windows\CurrentVersion\Component Based Servicing\RebootPending" -EA Ignore) { return $true }
+    #    if (Get-Item "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate\Auto Update\RebootRequired" -EA Ignore) { return $true }
+    #    if (Get-ItemProperty "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager" -Name PendingFileRenameOperations -EA Ignore) { return $true }
+    #    try { 
+    #    $util = [wmiclass]"\\.\root\ccm\clientsdk:CCM_ClientUtilities"
+    #    $status = $util.DetermineIfRebootPending()
+    #    if(($status -ne $null) -and $status.RebootPending){
+    #    return $true
+    #    }
+    #    }catch{}
+    #    return $false
+    #}
+    #    $pendingreboot = PendingReboot
+    #$rebootcheck = PendingReboot;If ($rebootcheck -eq "True"){Write-Output "Pending Reboot: True"}Else{Write-Output "Pending Reboot: False"}
+    function AV-Check 
+        {
+        $ErrorActionPreference = "SilentlyContinue"
+        $antivirus = Get-ChildItem -Path HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall, HKLM:\SOFTWARE\Wow6432Node\Microsoft\Windows\CurrentVersion\Uninstall | Get-ItemProperty | Where-Object {$_.DisplayName -match "trend|mcafee|eset|symantec|norton|bitdefender|sophos|kapersky|avast|avg|avg|clamav|virus|endpoint protection|smart security|internet security" } | Select-Object -Property DisplayName | Select -ExpandProperty DisplayName
+        If ($antivirus -eq $null){Write-Output "Anvtivirus Installed: No Antivirus Found"}Else{Write-Output "Antivirus Installed: $antivirus"}}
+    Function Patch-Check
+        {
+        $patchcheck = Get-HotFix | Select-Object -Property Description,HotFixID,InstalledOn | Select-Object -Last 5 | Sort-Object -Descending | Format-Table
+        Write-Output "Most Recent Patches Installed:"$patchcheck
+        } 
+    Function Installed-Software 
+        {
+        $ErrorActionPreference = "SilentlyContinue"
+        $iis = (Get-WindowsFeature web-server).InstallState
+        If (Test-Path 'HKLM:\SOFTWARE\Microsoft\Microsoft SQL Server') {
+        $inst = (get-itemproperty 'HKLM:\SOFTWARE\Microsoft\Microsoft SQL Server').InstalledInstances
+        foreach ($i in $inst)
+        {
+        $p = (Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Microsoft SQL Server\Instance Names\SQL').$i
+        #$i
+        $edition = (Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\Microsoft SQL Server\$p\Setup").Edition
+        $version = (Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\Microsoft SQL Server\$p\Setup").Version
+        $product = Switch -regex ($version) {
         '^10' { "Microsoft SQL Server 2008/R2" }
         '^11' { "Microsoft SQL Server 2012" }
         '^12' { "Microsoft SQL Server 2014" }
@@ -118,47 +103,70 @@ foreach ($i in $inst)
         '^14' { "Microsoft SQL Server 2017" }
         '^15' { "Microsoft SQL Server 2019" }
         Default { "Unsupported version." }
-    }
-    Write-Host ""
-    #Write-Host "Instance: $i"
-    Write-Host "Product: $product"
-    Write-Host "Edition: $edition"
-    Write-Host "Version: $version"
-    Write-Host ""
-}
-}Else{
-Write-Host "SQL Software not installed"
-}
-""
-$iis = (Get-WindowsFeature web-server).InstallState
-if ($iis -eq "Installed") {Write-Host "IIS is Installed"} Else {Write-Host "IIS is NOT Installed"}}
-#SQL-VersionCheck
-Function Armor-Services
-{Write-Host "Armor Subagent Service Status" -ForegroundColor Yellow
-$services = @{}
-$servicenames = @('AMSP','ds_agent', 'Armor-Filebeat', 'Armor-Winlogbeat', 'Bomgar', 'QualysAgent', 'PanoptaAgent')
-Foreach ($servicename in $servicenames ) {
-    try {
-        $servicestatus = Get-Service $servicename -ErrorAction Stop | select -ExpandProperty status
-        
-    } catch {
+        }}}     }
+    Function Armor-Services
+        {Write-Output "Armor Subagent Service Status:"
+        $services = @{}
+        $servicenames = @('AMSP','ds_agent','ds_monitor','ds_notifier','ds_agent', 'Armor-Filebeat', 'Armor-Winlogbeat','QualysAgent', 'PanoptaAgent')
+        Foreach ($servicename in $servicenames ) {
+        try {
+        $servicestatus = gsv $servicename -ErrorAction Stop | select -ExpandProperty status
+        #$servicedisplay = gsv $servicename -ErrorAction Stop | select -ExpandProperty DisplayName
+        } catch {
         $servicestatus = 'Not Installed'        
-    }
-    $services.Add($servicename , $servicestatus)
+        }
+        $services.Add($servicename , $servicestatus)
+        }
+        New-Object psobject -Property $services | Out-Default
+        }
+        $ErrorActionPreference = "SilentlyContinue"
+    Function Agent-Info
+        {
+        $ErrorActionPreference = 'silentlycontinue'
+        $armoragent = gsv armor-agent | select -ExpandProperty Status
+        }
+    Function show-subagents
+        {Write-Output "Installed Subagents:"
+        $output = @()
+        $reg = Get-ChildItem -Path HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall, HKLM:\SOFTWARE\Wow6432Node\Microsoft\Windows\CurrentVersion\Uninstall | Get-ItemProperty
+        "Trend","Panopta","Qualys" | ForEach-Object {
+        $tmpout = '' | select Subagent,Version,Installed
+        $tmpout.Subagent = $_
+        $key = $reg | Where-Object { $_ -match $tmpout.Subagent }
+        $tmpout.Installed = ( -not [string]::IsNullOrEmpty($key) )
+        $tmpout.Version = try{ $key[0].displayversion } catch {$null}
+        
+        $output+= $tmpout
+        }
+        'Filebeat','Winlogbeat' | ForEach-Object {
+        $tmpout = '' | select Subagent,Version,Installed
+        $tmpout.Subagent = $_
+        try {
+        $filepath = Get-Item -Path "c:\.armor\opt\$_*" -ErrorAction Stop | Where-Object{$_.PSIsContainer} | select -First 1
+        $tmpout.Installed = $true
+        $tmpout.Version = ($filepath.Name | Select-String "\d\.\d\.\d").Matches[0].Value
+        } catch {
+        $tmpout.Installed = $false
+        $tmpout.Version = $null
+        }
+        $output += $tmpout
+        }
+        $output
+        } 
+        }
+
+Process
+{
+    If ($serverinfo){server-info}
+    If ($getuptime){Get-Uptime}
+    #If ($pendingreboot){PendingReboot}
+    If ($avcheck){AV-Check}
+    If ($patchcheck){Patch-Check}
+    If ($armorservices){Agent-Info;Armor-Services;show-subagents}
+    #If ($showsubagents){show-subagents}
 }
-New-Object psobject -Property $services | Out-Default
-#Armor-Services
-}
-$ErrorActionPreference = "SilentlyContinue"
+End
+{
 
 
-server-info
-Get-Uptime
-Test-PendingReboot
-AV-Check
-Trend-PortCheck
-Patch-Check
-Protocolcheck
-""
-CipherCheck
-Software-check
+}
