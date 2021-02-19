@@ -112,13 +112,13 @@ Begin {
         $ErrorActionPreference = "SilentlyContinue"
         $antivirus = Get-ChildItem -Path HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall, HKLM:\SOFTWARE\Wow6432Node\Microsoft\Windows\CurrentVersion\Uninstall | Get-ItemProperty | Where-Object {$_.DisplayName -match "avast|avg|bitdefender|clamav|crowdstrike|endpoint protection|eset|internet security|kapersky|mcafee|norton|smart security|sophos|symantec|trend|virus" } | Select-Object -Property DisplayName | Select -ExpandProperty DisplayName
         If ($antivirus -eq $null)
-        {Write-Output "No Antivirus Installed"}Else{$antivirus}
+        {Write-Output "No Antivirus Installed" | Out-Default}Else{$antivirus | Out-Default}
         }
     Function Patch-Check
         {
         $patchcheck = Get-HotFix | Select-Object -Property Description,HotFixID,InstalledOn | Select-Object -Last 5 | Sort-Object -Descending | Format-Table
         Write-Host "Most Recent Patches Installed" -ForegroundColor Yellow
-        Write-Output $patchcheck
+        Write-Output $patchcheck | Out-Default
         } 
     Function Installed-Software 
         {Write-Host "Software Check" -ForegroundColor Yellow
@@ -265,14 +265,14 @@ Process
         If ($showarmorservices){$all = $false
                                 Show-Armorservices}
         if ($all){
-            server-info
-            Get-Uptime
-            PendingReboot
-            AV-Check
-            Patch-Check
-            Protocolcheck
-            CipherCheck
-            Installed-Software
-            Show-Armorservices
+            server-info | Out-Default
+            Get-Uptime | Out-Default
+            PendingReboot | Out-Default
+            AV-Check | Out-Default
+            Patch-Check | Out-Default
+            Protocolcheck | Out-Default
+            CipherCheck | Out-Default
+            Installed-Software | Out-Default
+            Show-Armorservices | Out-Default
         }
     }
