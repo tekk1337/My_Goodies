@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Short description
 .DESCRIPTION
@@ -68,48 +68,56 @@ Param (
 )
 
 Begin {
-    Function Server-Info
-        <#.Example: PS C:\Test Script> .\wininfo-v3.ps1 -serverinfo
-        This section will display the general server information (ie. Hostname, drive Information, CPU, Memory, etc.)
-        #>
-        {
+    #Recommend change to 'Get-DriveInfo'
+    #to do: 
+    # Change gwmi to get-ciminstance
+    # Change out all Aliases
+    # Formatting
+    Function drive-info {
+        $c=$env:COMPUTERNAME
+        $disks= gwmi win32_diskdrive -Comp $c|select __path,@{n="SCSI_Id";e={[string]$([int]$_.scsiport)+":"+$_.scsitargetid}},serialnumber,Type
+        function match($p,$l,$c){$l2p=gwmi win32_logicaldisktopartition -comp $c|?{$_.dependent -eq $l.__PATH}
+        $d2p=gwmi win32_diskdrivetodiskpartition -comp $c|?{$_.dependent -eq $l2p.antecedent}
+        $tmp=Get-WmiObject Win32_DiskPartition -comp $c|?{$_.__PATH -eq $l2p.Antecedent}
+        $t=switch -Regex ($tmp.type){'^GPT'{'GPT'};'^Ins'{'MBR'}
+        default{'unavailable'}}$p=$p|?{$_.__path -eq $d2p.antecedent};$p.Type=$t;$p}
+
+        $return = gwmi win32_logicaldisk -comp $c |?{$_.drivetype -eq '3'}|%{$d = match $disks $_ $c
+        New-Object psobject -Property @{Computer=$c;Drive=$_.deviceid;Name=$_.volumename;SCSIID=$d.SCSI_Id;SizeGB=[Math]::Round($_.size/1GB)
+        FreeGB=[Math]::Round($_.FreeSpace/1GB);Serial=$d.serialnumber;Type=$d.Type}}
+
+        return  ($return|select Computer,Type,Drive,Name, FreeGB,SizeGB,SCSIID,Serial)
+    }
+    
+    #recommend changing Server-Info to Get-ServerInfo
+    Function Server-Info {
+        $os = Get-CimInstance Win32_OperatingSystem
+        $ips = Get-NetAdapter -Physical | Get-NetIPAddress -AddressFamily IPv4
+        $drives = drive-info
+        [string[]]$dns = Get-NetAdapter -Physical | 
+            Get-DnsClientServerAddress -AddressFamily IPv4 |
+                Where-Object { $_.ServerAddresses} | 
+                    ForEach-Object { '{0}: {1}' -f $_.InterfaceAlias,($_.ServerAddresses -join ', ')
+                    }
         $hostname = [System.Net.Dns]::GetHostName()
-        $osinfo = $OS = Get-CimInstance Win32_OperatingSystem | select -ExpandProperty Caption;$OSSP = (Get-CimInstance Win32_OperatingSystem | select -ExpandProperty ServicePackMajorVersion);$OSArch = (Get-CimInstance Win32_OperatingSystem).OSArchitecture
-        $ipinfo = Get-NetIPAddress -AddressFamily IPv4 -InterfaceAlias Ethernet* | select InterfaceAlias,IPAddress | ft -AutoSize
         $domain = (Get-CimInstance Win32_ComputerSystem).Domain
         $dns = Get-DnsClientServerAddress -InterfaceAlias "Ethernet*"  | select -ExpandProperty ServerAddresses | Where-Object {$_ -notlike "*:*"}
-        $memory = Get-CimInstance Win32_PhysicalMemory | Measure-Object -Property capacity -Sum | Foreach {"{0:N2}" -f ([math]::round(($_.Sum / 1GB),2))}
-        $cpuinfo = Get-CimInstance –class Win32_processor | ft DeviceID,NumberOfCores,NumberOfLogicalProcessors
-        Function drive-info
-        {
-            $driveinfo = $c=$env:COMPUTERNAME
-            $disks=gwmi win32_diskdrive -Comp $c|select __path,@{n="SCSI_Id";e={[string]$([int]$_.scsiport)+":"+$_.scsitargetid}},serialnumber,Type
-            function match($p,$l,$c){$l2p=gwmi win32_logicaldisktopartition -comp $c|?{$_.dependent -eq $l.__PATH}
-            $d2p=gwmi win32_diskdrivetodiskpartition -comp $c|?{$_.dependent -eq $l2p.antecedent}
-            $tmp=Get-WmiObject Win32_DiskPartition -comp $c|?{$_.__PATH -eq $l2p.Antecedent}
-            $t=switch -Regex ($tmp.type){'^GPT'{'GPT'};'^Ins'{'MBR'}
-            default{'unavailable'}}$p=$p|?{$_.__path -eq $d2p.antecedent};$p.Type=$t;$p}
-            gwmi win32_logicaldisk -comp $c |?{$_.drivetype -eq '3'}|%{$d = match $disks $_ $c
-            New-Object psobject -Property @{Computer=$c;Drive=$_.deviceid;Name=$_.volumename;SCSIID=$d.SCSI_Id;SizeGB=[Math]::Round($_.size/1GB)
-            FreeGB=[Math]::Round($_.FreeSpace/1GB);Serial=$d.serialnumber;Type=$d.Type}}|ft -a Computer,Name,Drive,Type,SCSIID,FreeGB,SizeGB,Serial
-        }
-        Write-Host "Server Information" -ForegroundColor Yellow
-        $drive = drive-info
-        Write-Output "Hostname: $hostname"
-        " "
-        Write-Output "OS: $osinfo"
-        " "
-        If ($domain -like '*.*'){Write-Output "Domain: $domain"}Else{Write-Output "Domain: Not Connected to a domain"}
-        " "
-        Write-Output "IP Information:"$ipinfo 
-        " "
-        Write-Output "DNS Server IPs:"$dns
-        " "
-        Write-Output "CPU Information"$cpuinfo
-        Write-Output "Total RAM: $memory GB"
-        " "
-        Write-Output "Drive Information:"$drive
-        }
+        $memory = Get-CimInstance Win32_PhysicalMemory | Measure-Object -Property capacity -Sum | ForEach-Object {"{0} GB" -f ([math]::round(($_.Sum / 1GB)))}
+        $phys = Get-CimInstance win32_processor
+        $logical = $phys | Measure-Object -Property NumberOfLogicalProcessors,NumberOfCores -Sum
+
+        New-Object psobject -Property ([ordered]@{
+            Computer = $hostname
+            OS = $os.Caption
+            Domain = $domain
+            IPAddresses = $ips.IPv4Address -join ', '
+            DNS = $dns -join "`n`r"
+            CPU = 'Sockets: {0}; CoresPerSocket: {2}; LogicalProcessors: {1}' -f ($phys|Measure-Object).Count, $logical[0].Sum, $logical[1].Sum
+            Memory = $memory
+            Disks = foreach($drive in $drives){"Drive: {0}; Type: {1};Location: {2}; Free/Total Storage: {3} GB /{4} GB`n`r" -f $drive.Drive, $drive.Type, $drive.SCSIID, $drive.FreeGB, $drive.SizeGB}
+        })
+    }#end Server-Info
+    
     Function Get-Uptime
         <#.Example: PS C:\Test Script> .\wininfo-v3.ps1 -getuptime
         This section will show uptime for the server (ie. last reboot time and how long since last reboot)
@@ -292,7 +300,7 @@ Begin {
         }
 }
 
-Process{ 
+Process{
     switch ( $true ) {
         $serverinfo { Server-Info }
         $getuptime { Get-Uptime }
