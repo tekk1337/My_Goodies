@@ -13,7 +13,10 @@
 
 Begin {
     Function Server-Info
-    {
+        <#.Example: PS C:\Test Script> .\wininfo-v3.ps1 -serverinfo
+        This section will display the general server information (ie. Hostname, drive Information, CPU, Memory, etc.)
+        #>
+        {
         $hostname = [System.Net.Dns]::GetHostName()
         $osinfo = $OS = Get-CimInstance Win32_OperatingSystem | select -ExpandProperty Caption;$OSSP = (Get-CimInstance Win32_OperatingSystem | select -ExpandProperty ServicePackMajorVersion);$OSArch = (Get-CimInstance Win32_OperatingSystem).OSArchitecture
         $ipinfo = Get-NetIPAddress -AddressFamily IPv4 -InterfaceAlias Ethernet* | select InterfaceAlias,IPAddress | ft -AutoSize
@@ -52,6 +55,9 @@ Begin {
         Write-Output "Drive Information:"$drive
         }
     Function Get-Uptime
+        <#.Example: PS C:\Test Script> .\wininfo-v3.ps1 -getuptime
+        This section will show uptime for the server (ie. last reboot time and how long since last reboot)
+        #>
         {
         $os = Get-WmiObject win32_operatingsystem
         $uptime = (Get-Date) - ($os.ConvertToDateTime($os.lastbootuptime))
@@ -63,6 +69,9 @@ Begin {
         Write-Output "Last Rebooted:"$lastboottime
         }
     function PendingReboot
+        <#.Example: PS C:\Test Script> .\wininfo-v3.ps1 -pendingreboot
+        This section will show if there are any pending reboot flags on the server
+        #>
         {
         Write-Host "Pending Reboot" -ForegroundColor Yellow
         if (Get-ChildItem "HKLM:\Software\Microsoft\Windows\CurrentVersion\Component Based Servicing\RebootPending" -EA Ignore) { return $true }
@@ -79,6 +88,9 @@ Begin {
         return $false
         }
     Function Protocolcheck
+        <#.Example: PS C:\Test Script> .\wininfo-v3.ps1 -protocolcheck
+        This section will display which, if any, protocol suites are enabled (ie. TLS 1.2)
+        #>
         {
         Write-Host "Protocols" -ForegroundColor Yellow
         $ErrorActionPreference = "SilentlyContinue"
@@ -119,7 +131,7 @@ Begin {
     Function Patch-Check
         {
         $patchcheck = Get-HotFix | Select-Object -Property Description,HotFixID,InstalledOn | Select-Object -Last 5 | Sort-Object -Descending | Format-Table
-        #Write-Host "Most Recent Patches Installed" -ForegroundColor Yellow
+        Write-Host "Most Recent Patches Installed" -ForegroundColor Yellow
         Write-Output $patchcheck | Out-Default
         } 
     Function Installed-Software 
