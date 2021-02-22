@@ -1,15 +1,15 @@
 ﻿[CmdletBinding()] 
-    Param (
-    [switch]$serverinfo,
-    [switch]$getuptime,
-    [switch]$pendingreboot,
-    [switch]$avcheck,
-    [switch]$installedsoftware,
-    [switch]$patchcheck,
-    [switch]$protocolcheck,
-    [switch]$ciphercheck,
-    [switch]$showarmorservices
-    )
+Param (
+[switch]$serverinfo,
+[switch]$getuptime,
+[switch]$pendingreboot,
+[switch]$avcheck,
+[switch]$installedsoftware,
+[switch]$patchcheck,
+[switch]$protocolcheck,
+[switch]$ciphercheck,
+[switch]$showarmorservices
+)
 
 Begin {
     Function Server-Info
@@ -234,15 +234,9 @@ Begin {
         {
         $showarmorservices = Agent-Info;Agent-Version;show-subagents;Armor-Services
         }
-        }
+}
 
-    
-        
-
-
-Process
-        
-    { 
+Process{ 
         $all = $true
         If ($serverinfo){$all = $false 
                         server-info}
@@ -273,4 +267,4 @@ Process
             Installed-Software | Out-Default
             Show-Armorservices | Out-Default
         }
-    }
+}
