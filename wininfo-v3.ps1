@@ -40,6 +40,8 @@ Begin {
         " "
         Write-Output "OS: $osinfo"
         " "
+        If ($domain -like '*.*'){Write-Output "Domain: $domain"}Else{Write-Output "Domain: Not Connected to a domain"}
+        " "
         Write-Output "IP Information:"$ipinfo 
         " "
         Write-Output "DNS Server IPs:"$dns
@@ -117,7 +119,7 @@ Begin {
     Function Patch-Check
         {
         $patchcheck = Get-HotFix | Select-Object -Property Description,HotFixID,InstalledOn | Select-Object -Last 5 | Sort-Object -Descending | Format-Table
-        Write-Host "Most Recent Patches Installed" -ForegroundColor Yellow
+        #Write-Host "Most Recent Patches Installed" -ForegroundColor Yellow
         Write-Output $patchcheck | Out-Default
         } 
     Function Installed-Software 
