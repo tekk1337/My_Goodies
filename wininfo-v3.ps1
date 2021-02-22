@@ -234,10 +234,6 @@ Begin {
         {
         $showarmorservices = Agent-Info;Agent-Version;show-subagents;Armor-Services
         }
-    Function Full-Servercheck
-        {
-        $all = Server-Info;Get-Uptime;PendingReboot;AV-Check;Patch-Check;Protocolcheck;CipherCheck;Installed-Software;Show-Armorservices
-        }
         }
 
     
@@ -245,18 +241,6 @@ Begin {
 
 
 Process
-        
-        #{
-        #If ($serverinfo){server-info}
-        #If ($getuptime){Get-Uptime}
-        #If ($pendingreboot){PendingReboot}
-        #If ($avcheck){AV-Check}
-        #If ($patchcheck){Patch-Check}
-        #If ($protocolcheck){Protocolcheck}
-        #If ($ciphercheck){CipherCheck}
-        #If ($installedsoftware){Installed-Software}
-        #If ($showarmorservices){Show-Armorservices}
-        #Process
         
     { 
         $all = $true
