@@ -1,4 +1,26 @@
-﻿[CmdletBinding()] 
+<#
+.SYNOPSIS
+    Short description
+.DESCRIPTION
+    Long description
+.EXAMPLE
+    PS C:\> <example usage>
+    Explanation of what the example does
+.Example
+PS C:\Test Script> .\wininfo-v3.ps1 -serverinfo
+
+This section will display the general server information (ie. Hostname, drive Information, CPU, Memory, etc.)
+.INPUTS
+    Inputs (if any)
+.OUTPUTS
+    Output (if any)
+.NOTES
+    General notes
+
+#>
+
+#Requires -Version 3.0
+[CmdletBinding()] 
 Param (
 [switch]$serverinfo,
 [switch]$getuptime,
