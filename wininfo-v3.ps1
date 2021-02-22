@@ -22,15 +22,49 @@ This section will display the general server information (ie. Hostname, drive In
 #Requires -Version 3.0
 [CmdletBinding()] 
 Param (
-[switch]$serverinfo,
-[switch]$getuptime,
-[switch]$pendingreboot,
-[switch]$avcheck,
-[switch]$installedsoftware,
-[switch]$patchcheck,
-[switch]$protocolcheck,
-[switch]$ciphercheck,
-[switch]$showarmorservices
+    # Get General Server Information (ie. Hostname, drive Information, CPU, Memory, etc.)
+    [switch]
+    $serverinfo,
+
+    # Gets Server Uptime
+    [switch]
+    $getuptime,
+
+    # Checks for pending Reboots
+    [switch]
+    $pendingreboot,
+
+    #Checks for existing AV
+    [switch]
+    $avcheck,
+
+    #Returns installed Software
+    [switch]
+    $installedsoftware,
+
+    #Gets installed Patches
+    [switch]
+    $patchcheck,
+
+    #Returns any non-default protocol settings
+    [switch]
+    $protocolcheck,
+
+    #Returns any non-default Cipher Settings
+    [switch]
+    $ciphercheck,
+
+    #returns Armor Subagents
+    [switch]
+    $showarmorservices,
+
+    #Returns info of disks
+    [switch]
+    $Disks,
+
+    #returns any unexpected Reboots.
+    [switch]
+    $unexpectedReboot
 )
 
 Begin {
