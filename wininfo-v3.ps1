@@ -293,34 +293,24 @@ Begin {
 }
 
 Process{ 
-        $all = $true
-        If ($serverinfo){$all = $false 
-                        server-info}
-        If ($getuptime){$all = $false
-                        Get-Uptime}
-        If ($pendingreboot){$all = $false
-                            PendingReboot}
-        If ($avcheck){$all = $false
-                      AV-Check}
-        If ($patchcheck){$all = $false
-                         Patch-Check}
-        If ($protocolcheck){$all = $false
-                            Protocolcheck}
-        If ($ciphercheck){$all = $false
-                          CipherCheck}
-        If ($installedsoftware){$all = $false
-                                Installed-Software}
-        If ($showarmorservices){$all = $false
-                                Show-Armorservices}
-        if ($all){
-            server-info | Out-Default
-            Get-Uptime | Out-Default
-            PendingReboot | Out-Default
-            AV-Check | Out-Default
-            Patch-Check | Out-Default
-            Protocolcheck | Out-Default
-            CipherCheck | Out-Default
-            Installed-Software | Out-Default
-            Show-Armorservices | Out-Default
+    switch ( $true ) {
+        $serverinfo { Server-Info }
+        $getuptime { Get-Uptime }
+        $pendingreboot { PendingReboot }
+        $avcheck { AV-Check }
+        $installedsoftware { Installed-Software }
+        $patchcheck { Patch-Check }
+        $protocolcheck { Protocolcheck }
+        $ciphercheck { CipherCheck }
+        $showarmorservices { Show-Armorservices }
+        $Disks { drive-info }
+        $unexpectedReboot {
+            Get-WinEvent -FilterHashtable @{Logname='System';id='6008'} -MaxEvents 10 |Select-Object MachineName,TimeCreated,Message
         }
+        default {
+            getserverinfo
+            getuptime
+            avcheck
+        }
+    }
 }
