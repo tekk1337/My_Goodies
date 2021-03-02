@@ -202,6 +202,9 @@ Begin {
         " "
         $r1softagent = gsv cdp | select Status
         If ($r1softagent -eq $null){Write-Output "R1soft Agent is NOT Installed"}Else{Write-Output "R1soft Agent is installed"}
+        " "
+        $rubrikagent = gsv "Rubrik Backup Service" | select Status
+        If ($rubrikagent -eq $null){Write-Output "Rubrik Agent is not Installed"}Else{Write-Output "Rubrik Agent is Installed"}
         }
      
     Function Agent-Version
