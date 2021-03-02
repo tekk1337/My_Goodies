@@ -1,4 +1,5 @@
-﻿#Requires -Version 3.0
+﻿  
+#Requires -Version 3.0
 [CmdletBinding()] 
     Param (
     [switch]$serverinfo,
@@ -193,6 +194,14 @@ Begin {
         ""
         $iis = (Get-WindowsFeature web-server).InstallState
         if ($iis -eq "Installed") {Write-Output "IIS is Installed"} Else {Write-Output "IIS is NOT Installed"}
+        " "
+        $vormetricagent = gsv secfsd | select Status
+        $vormetricversion = & 'C:\Program Files\Vormetric\DataSecurityExpert\agent\secfs\sec\bin\secfsd.exe' | findstr Version
+        $vormetricrelease = $vormetricversion.split(" ")[12]
+        If ($vormetricagent -eq $null){Write-Output "Vormetric Agent is Not Installed"}Else{Write-Output "Vormetric Agent Version: $vormetricrelease"}
+        " "
+        $r1softagent = gsv cdp | select Status
+        If ($r1softagent -eq $null){Write-Output "R1soft Agent is NOT Installed"}Else{Write-Output "R1soft Agent is installed"}
         }
      
     Function Agent-Version
